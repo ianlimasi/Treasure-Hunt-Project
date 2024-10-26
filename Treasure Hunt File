@@ -1,0 +1,1140 @@
+/*
+FILE: Project2.cpp
+AUTHOR: Ian Limasi
+DATE: May 12, 2024
+*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string>
+#include <time.h>
+#include <iostream>
+
+using namespace std;
+
+int all_nums[5] = {11, 12, 13, 14, 15};
+string all_trs[5] = {"bronze", "silver", "gold", "rubies", "valadium"};
+int all_length[5] = {5, 4, 3, 2, 1};
+
+int humFound = 0;
+int AIFound = 0;
+
+int arrOG[64] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+
+// int treasure_num = 13;
+// int treasure_num2 = 15;
+
+const int rows = 8;
+const int cols = 8;
+const int size = rows * cols;
+
+// This function prints the passed array or "treasure map" according to the
+// desired row and column
+void printMap(int arr[], const int rows, const int cols) {
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      printf("%d", arr[i * cols + j]);
+      printf("\t");
+    }
+    printf("\n");
+  }
+}
+
+// This function prints the map with only the revealed elements
+void show(int arr[], const int rows, const int cols) {
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      printf(" ");
+      if (arr[i * cols + j] >= 0) {
+        printf("-");
+      } 
+      else if (arr[i * cols + j] == -1) {
+        printf("X");
+      } 
+      else {
+        printf("@");
+      }
+      printf(" ");
+    }
+    printf("\n");
+  }
+}
+
+// This function prints the map with all elements revealed, including treasure symbols
+void reveal(int arr[], const int rows, const int cols) {
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      printf(" ");
+      if (arr[i * cols + j] == 0) {
+        printf("-");
+      } else if (arr[i * cols + j] == -1) {
+        printf("X");
+      }
+      // used ASCII chart from https://en.cppreference.com/w/cpp/language/ascii
+      else if (arr[i * cols + j] >= 11 && arr[i * cols + j] <= 15) {
+        printf("%c", arr[i * cols + j] + 'a' - 11);
+      } else if (arr[i * cols + j] <= -11 && arr[i * cols + j] >= -15) {
+        printf("%c", -arr[i * cols + j] + 'A' - 11);
+      } else {
+        printf("?");
+      }
+      printf(" ");
+    }
+    printf("\n");
+  }
+}
+
+// This function allows the human player to dig at a specific location
+int humanDig(int arr[]) {
+  int rowDig = 0;
+  int colDig = 0;
+  printf("\nEnter row and column you wish to dig from the opponent's map\n");
+  scanf("%d,%d", &rowDig, &colDig);
+  for (int i = 0; i < 5; i++) {
+    if (arr[rowDig * cols + colDig] == all_nums[i]) {
+      arr[rowDig * cols + colDig] = -1 * all_nums[i];
+      AIFound++;
+    } 
+    else if (arr[rowDig * cols + colDig] == 0) {
+      arr[rowDig * cols + colDig] = -1;
+    }
+  }
+  return (AIFound >= 15) ? -1 : 0;
+}
+
+// This function allows the AI player to dig at a random location
+int AIDig(int arr[]) {
+  int rowDig = rand() % 8;
+  int colDig = rand() % 8;
+  printf("\nThe AI dug row %d and column %d", rowDig, colDig);
+  for (int i = 0; i < 5; i++) {
+    if (arr[rowDig * cols + colDig] == all_nums[i]) {
+      arr[rowDig * cols + colDig] = -1 * all_nums[i];
+      humFound++;
+    } 
+    else if (arr[rowDig * cols + colDig] == 0) {
+      arr[rowDig * cols + colDig] = -1;
+    }
+  }
+  return (humFound >= 15) ? -1 : 0;
+}
+
+// This function replaces certain sequences of elements in the array passed to a new value
+int setByOffset(int arr[], int row, int col, int rowOrCol, int times, int treasure_num, string humOrAI) {
+  // "changes" track the amount of ints in the array that were changed
+  int changes = 0;
+  int start = row * cols + col;
+
+  for (int i = 0; i < times; i++) {
+    int current = (rowOrCol == 1) ? start + i : start + i * cols;
+    if (arr[current] != treasure_num) {
+      changes++;
+    }
+    arr[current] = treasure_num;
+    // if (humOrAI == "hum") {
+    //   human_trs[hum_Idx] = treasure_num;
+    //   hum_Idx++;
+    // }
+    // else if (humOrAI == "AI") {
+    //   AI_trs[AI_Idx] = treasure_num;
+    //   AI_Idx++;
+    // }
+  }
+  return changes;
+}
+
+// This function checks if placing a treasure at a specified location is valid
+int checkPlacement(int arr[], int rowOrCol, int row, int col, int times) {
+
+  int start = row * cols + col;
+  int max = 0;
+  if (rowOrCol == 0) {
+    max = start + ((times - 1) * cols);
+  } 
+  else if (rowOrCol == 1) {
+    max = start + times - 1;
+  }
+
+  if (start < 0 || start >= 64 || max < 0 || max >= 64) {
+    return 66;
+  }
+  if (row > 7 || col > 7) {
+    return 66;
+  }
+
+  for (int i = 0; i < 5; i++) {
+    for (int j = 0; j < times; j++) {
+      int current = (rowOrCol == 1) ? start + j : start + j * cols;
+      if (arr[current] == all_nums[i]) {
+        // printf("\narr[%d] is %d", current, arr[current]);
+        // printf("\nall_nums[%d] is %d\n", i, all_nums[i]);
+        return 67;
+      }
+    }
+  }
+  return 68;
+}
+
+// This function is to check whether the treasure chests has been placed succesfully (prints success or failure)
+bool placeChest(int arr[], int row, int col, int rowOrCol, int times, int treasure_num, string humOrAI) {
+  if (!checkPlacement(arr, rowOrCol, row, col, times)) {
+    return false;
+  }
+  setByOffset(arr, rows, cols, rowOrCol, times, treasure_num, humOrAI);
+
+  return true;
+}
+
+// This function prompts the user to specify the location and orientation of a treasure
+int userPrompt(int arr[], int i, int &row_trs, int &col_trs, int &rowOrCol, int &length) {
+  // int trs_rowCol[5];
+  printf("\nEnter row and column for %s (separated by ','):\n", all_trs[i].c_str());
+  scanf("%d,%d", &row_trs, &col_trs);
+  int c;
+  while ((c = getchar() != '\n') && c != EOF) {
+  }
+  printf("Enter 1 to place accross rows or 0 to place accross columns:\n");
+  scanf("%d", &rowOrCol);
+  while ((c = getchar() != '\n') && c != EOF) {
+  }
+
+  // trs_rowCol[i] = (row_trs * cols + col_trs);
+  // arr[i] = (row_trs * cols + col_trs);
+  length = all_length[i];
+  int placement = checkPlacement(arr, rowOrCol, row_trs, col_trs, length);
+
+  return placement;
+}
+
+// This function is the main function for handling the human player's input
+void userPlacement(int *arr, int &changes) {
+  // string treasure_type;
+  int trs_rowCol[5];
+  int row_trs;
+  int col_trs;
+  int rowOrCol = 0;
+  int length = 0;
+
+  for (int i = 0; i < 5; i++) {
+    int placement = userPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+
+    printf("\nThe treasure is symbolized by the number '%d'\n", all_nums[i]);
+    printf("The treasure is %d units long\n", all_length[i]);
+
+    if (placement == 66) {
+      while (placement == 66) {
+        printf("Invalid coordinates, out of bounds\n");
+        placement = userPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+      }
+      changes = 0;
+    } else if (placement == 67) {
+      while (placement == 67) {
+        printf("Can't place more than one treasure at the same place!\n");
+        placement = userPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+      }
+      changes = 0;
+    }
+    printf("The treasure can be placed at row %d, column %d \n\n", row_trs, col_trs);
+    // printf("ROW OR COL: %d", rowOrCol);
+    changes += setByOffset(arr, row_trs, col_trs, rowOrCol, length, all_nums[i], "hum");
+
+    // this is to visually keep track of treasure placements
+    printMap(arr, rows, cols);
+
+    bool chestPlaced = placeChest(arr, row_trs, col_trs, rowOrCol, length, all_nums[i], "hum");
+
+    // prints success or failure
+    if (chestPlaced) {
+      printf("\n/// The treasure chests have been placed successfully!///\n");
+    }
+    else {
+      printf("\n/// Failed to place chests ///\n");
+    }
+  }
+}
+
+// This function randomly determines the location and orientation of treasures for the AI player
+int AIPrompt (int arr[], int i, int &row_trs, int &col_trs, int &rowOrCol, int &length) {
+  srand(time(NULL));
+  row_trs = rand() % 8;
+  col_trs = rand() % 8;
+  rowOrCol = rand() % 2;
+  // arr[i] = (row_trs * cols + col_trs);
+  length = all_length[i];
+  int placement = checkPlacement(arr, rowOrCol, row_trs, col_trs, length);
+
+  return placement;
+}
+
+// This function handles the random placement of treasures for the AI player
+void randomPlacement(int *arr, int &changes) {
+  int trs_rowCol[5];
+  int row_trs;
+  int col_trs;
+  int rowOrCol = 0;
+  int length = 0;
+
+  for (int i = 0; i < 5; i++) {
+    int placement = AIPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+
+    if (placement == 66) {
+      while (placement == 66) {
+        placement = AIPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+      }
+      changes = 0;
+    } 
+    else if (placement == 67) {
+      while (placement == 67) {
+        placement = AIPrompt(arr, i, row_trs, col_trs, rowOrCol, length);
+      }
+      changes = 0;
+    }
+    changes += setByOffset(arr, row_trs, col_trs, rowOrCol, length, all_nums[i], "AI");
+    // printMap(arr, rows, cols);
+    bool chestPlaced = placeChest(arr, row_trs, col_trs, rowOrCol, length, all_nums[i], "AI");
+  }
+}
+
+// The main function is where the game is played
+int main(int argc, char **argv) {
+
+  printf("The original map looks like:\n");
+  printMap(arrOG, rows, cols);
+  
+  int arr_changes = 0;
+  int &changes = arr_changes;
+
+  int arrAI[64];
+  for (int i = 0; i < 64; i++) {
+    arrAI[i] = arrOG[i];
+  }
+  int *arrAI_ptr = arrAI;
+  
+  printf("\nThe AI's map looks like:\n");
+  randomPlacement(arrAI_ptr, changes);
+  //printMap(arrAI, rows, cols);
+
+  int arrAI2[64];
+  for (int i = 0; i < 64; i++) {
+    arrAI2[i] = arrAI[i];
+  }
+
+  show(arrAI2, rows, cols);
+
+  printf("\n\n/// USER'S TURN TO PLACE TREASURES ///\n");
+  
+  int arrHuman[64];
+  for (int i = 0; i < 64; i++) {
+    arrHuman[i] = arrOG[i];
+  }
+  int *arrHuman_ptr = arrHuman;
+
+  userPlacement(arrHuman_ptr, changes);
+
+  printf("\nOverall, the amount of numbers changed in the original map is %d\n", arr_changes);
+
+  // will be useful for later without changing the original arr[]
+  int arr2[64];
+  for (int i = 0; i < 64; i++) {
+    arr2[i] = arrHuman[i];
+  }
+
+  printf("\n\n/// TRY FINDING THE LOCATION OF THE TREASURES WITH THESE CONSIDERATIONS: ///\n\n");
+  
+  reveal(arr2, rows, cols);
+  printf("\t> 0 should be printed as '-'\n\t> -1 should be printed as X\n\t> "
+     "Positive numbers 11-15 should be printed as a-e respectively\n\t> "
+     "Negative numbers -11-15 should be printed as A-E respectively\n\t> "
+     "Everything else is printed as a question mark character '?'");
+
+
+  printf("\n\n\n//// TIME TO DIG THE TREASURES ///\n");
+
+  printf("\nRULES:\n\t> 0 indicates garden dirt\n\t> -1 indicates a hole dug in the dirt\n\t> -11 is a hole dug and bronze treasure extracted\n\t> -12  is a hole dug and silver treasure extracted\n\t> -13  is a hole dug and gold treasure extracted\n\t> -14  is a hole dug and rubies treasure extracted\n\t> -15 is a hole dug and vibranium treasure extracted\n\n");
+  
+  int turn = 0;
+  int iterate = 0;
+
+  while (iterate != -1) {
+    if (turn % 2 == 0) {
+      iterate = humanDig(arrAI_ptr);
+      printf("\nThe AI's map now looks like:\n");
+      show(arrAI, rows, cols);
+      printf("\t> -1 should be printed as X\n\t> Any other negative number should be printed as ampersand character @\n\t> Any positive number should also be printed as a dash character '-'\n\n");
+      turn++;
+    }
+    else if (turn % 2 != 0) {
+      iterate = AIDig(arrHuman_ptr);
+      printf("\nThe User's map now looks like:\n");
+      reveal(arrHuman, rows, cols);
+      printf("\t> 0 should be printed as '-'\n\t> -1 should be printed as X\n\t> Positive numbers 11-15 should be printed as a-e respectively\n\t> Negative numbers -11-15 should be printed as A-E respectively\n\t> Everything else is printed as a question mark character '?'\n\n");
+      turn++;
+    }
+  }
+
+  if (turn % 2 == 0) {
+    printf("\n///THE AI HAS WON!///\n");
+  } 
+  else if (turn % 2 != 0) {
+    printf("\n///THE USER HAS WON!///\n");
+  }
+}
+
+/*
+OUTPUT EXAMPLE:
+
+The original map looks like:
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+The AI's map looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+
+
+/// USER'S TURN TO PLACE TREASURES ///
+
+Enter row and column for bronze (separated by ','):
+0,0
+Enter 1 to place accross rows or 0 to place accross columns:
+0 
+
+The treasure is symbolized by the number '11'
+The treasure is 5 units long
+The treasure can be placed at row 0, column 0 
+
+11  0   0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+/// The treasure chests have been placed successfully!///
+
+Enter row and column for silver (separated by ','):
+0,1
+Enter 1 to place accross rows or 0 to place accross columns:
+0
+
+The treasure is symbolized by the number '12'
+The treasure is 4 units long
+The treasure can be placed at row 0, column 1 
+
+11  12  0   0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+/// The treasure chests have been placed successfully!///
+
+Enter row and column for gold (separated by ','):
+0,2
+Enter 1 to place accross rows or 0 to place accross columns:
+0
+
+The treasure is symbolized by the number '13'
+The treasure is 3 units long
+The treasure can be placed at row 0, column 2 
+
+11  12  13  0   0   0   0   0
+11  12  13  0   0   0   0   0
+11  12  13  0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+/// The treasure chests have been placed successfully!///
+
+Enter row and column for rubies (separated by ','):
+0,3
+Enter 1 to place accross rows or 0 to place accross columns:
+0
+
+The treasure is symbolized by the number '14'
+The treasure is 2 units long
+The treasure can be placed at row 0, column 3 
+
+11  12  13  14  0   0   0   0
+11  12  13  14  0   0   0   0
+11  12  13  0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+/// The treasure chests have been placed successfully!///
+
+Enter row and column for valadium (separated by ','):
+0,4
+Enter 1 to place accross rows or 0 to place accross columns:
+0
+
+The treasure is symbolized by the number '15'
+The treasure is 1 units long
+The treasure can be placed at row 0, column 4 
+
+11  12  13  14  15  0   0   0
+11  12  13  14  0   0   0   0
+11  12  13  0   0   0   0   0
+11  12  0   0   0   0   0   0
+11  0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+0   0   0   0   0   0   0   0
+
+/// The treasure chests have been placed successfully!///
+
+Overall, the amount of numbers changed in the original map is 16
+
+
+/// TRY FINDING THE LOCATION OF THE TREASURES WITH THESE CONSIDERATIONS: ///
+
+ a  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  -  -  - 
+ a  b  -  -  -  -  -  - 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+//// TIME TO DIG THE TREASURES ///
+
+RULES:
+    > 0 indicates garden dirt
+    > -1 indicates a hole dug in the dirt
+    > -11 is a hole dug and bronze treasure extracted
+    > -12  is a hole dug and silver treasure extracted
+    > -13  is a hole dug and gold treasure extracted
+    > -14  is a hole dug and rubies treasure extracted
+    > -15 is a hole dug and vibranium treasure extracted
+
+
+Enter row and column you wish to dig from the opponent's map
+1,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 3 and column 7
+The User's map now looks like:
+ a  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  -  -  - 
+ a  b  -  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+2,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 2 and column 5
+The User's map now looks like:
+ a  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  X  -  - 
+ a  b  -  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+3,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 0 and column 0
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  X  -  - 
+ a  b  -  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+4,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 5 and column 7
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  X  -  - 
+ a  b  -  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+5,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 7 and column 6
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  X  -  - 
+ a  b  -  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+6,3
+
+The AI's map now looks like:
+ -  -  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 3 and column 2
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  -  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+0,1
+
+The AI's map now looks like:
+ -  @  -  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 1 and column 6
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+0,2
+
+The AI's map now looks like:
+ -  @  @  -  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 6 and column 4
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  d  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+0,3
+
+The AI's map now looks like:
+ -  @  @  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 1 and column 3
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+0,4
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 7 and column 1
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+3,5
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 7 and column 6
+The User's map now looks like:
+ A  b  c  d  e  -  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+4,5
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 0 and column 5
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  -  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+5,5
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 4 and column 4
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+5,3
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 3 and column 2
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  c  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+4,3
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 2 and column 2
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  C  -  -  X  -  - 
+ a  b  X  -  -  -  -  X 
+ a  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+2,4
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  @  -  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 3 and column 5
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  C  -  -  X  -  - 
+ a  b  X  -  -  X  -  X 
+ a  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+2,5
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  @  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+The AI dug row 1 and column 6
+The User's map now looks like:
+ A  b  c  d  e  X  -  - 
+ a  b  c  D  -  -  X  - 
+ a  b  C  -  -  X  -  - 
+ a  b  X  -  -  X  -  X 
+ a  -  -  -  X  -  -  - 
+ -  -  -  -  -  -  -  X 
+ -  -  -  -  X  -  -  - 
+ -  X  -  -  -  -  X  - 
+    > 0 should be printed as '-'
+    > -1 should be printed as X
+    > Positive numbers 11-15 should be printed as a-e respectively
+    > Negative numbers -11-15 should be printed as A-E respectively
+    > Everything else is printed as a question mark character '?'
+
+
+Enter row and column you wish to dig from the opponent's map
+5,7
+
+The AI's map now looks like:
+ -  @  @  @  @  -  -  - 
+ -  -  -  @  -  -  -  - 
+ -  -  -  @  @  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  - 
+ -  -  -  @  -  @  -  @ 
+ -  -  -  X  -  -  -  - 
+ -  -  -  -  -  -  -  - 
+    > -1 should be printed as X
+    > Any other negative number should be printed as ampersand character @
+    > Any positive number should also be printed as a dash character '-'
+
+
+///THE USER HAS WON!///
+*/
